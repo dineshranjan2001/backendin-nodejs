@@ -21,5 +21,8 @@ const fileUploadOnCloud= async (localFilePath)=>{
     } catch (error) {
         //remove the locally saved file as the upload
         fs.unlinkSync(localFilePath);
+        return null;
     }
 }
+
+export {fileUploadOnCloud};

@@ -27,4 +27,9 @@ app.use(
 //to store the static file(like images and pdf files) into a server folder
 app.use(express.static("public"));
 
+
+import userRouter from "./routes/user.routes.js";
+
+app.use("/api/v1/users",userRouter);
+
 export default app;
