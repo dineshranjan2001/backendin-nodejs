@@ -16,7 +16,7 @@ const registerUser = asyncHandler(async (request, response) => {
   }
 
   //3.check the user is already exits or notcoverImage
-  const existedUser = User.findOne({
+  const existedUser =await User.findOne({
     $or: [{ username }, { email }],
   });
   if (existedUser) {
@@ -25,11 +25,13 @@ const registerUser = asyncHandler(async (request, response) => {
 
   //4.check for avatar, images
   const avatarLocalPath = request.files?.avatar[0]?.path;
-  const coverImageLocalPath = request.files?.coverImage[0]?.path;
+  let coverImageLocalPath;
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is required");
   }
-
+  if(request.files && Array.isArray(request.files.coverImage) && request.files.coverImage.length>0){
+     coverImageLocalPath=request.files.coverImage[0].path;
+  }
   //5.upload them to cloudinary,avatar
   const uploadAvatar = await fileUploadOnCloud(avatarLocalPath);
   const uploadCoverImage = await fileUploadOnCloud(coverImageLocalPath);
@@ -40,8 +42,8 @@ const registerUser = asyncHandler(async (request, response) => {
   //6.create user object to save the details in the db
   const saveUser = await User.create({
     fullname,
-    avatar: avatar.url,
-    coverImage: coverImage?.url || "",
+    avatar:uploadAvatar.url,
+    coverImage:uploadCoverImage?.url || "",
     email,
     password,
     username: username.toLowerCase(),
@@ -52,7 +54,7 @@ const registerUser = asyncHandler(async (request, response) => {
   //saveUser.password=undefined;
   //saveUser.refreshToken=undefined;
 
-  const createdUser = User.findById(saveUser._id).select(
+  const createdUser =await User.findById(saveUser._id).select(
     "-password -refreshToken"
   );
 
