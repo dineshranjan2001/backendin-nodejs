@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { isValidated } from "../utils/Validation.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { fileUploadOnCloud } from "../utils/Cloudinary.js";
+import { fileDeleteOnCloud, fileUploadOnCloud } from "../utils/Cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { generateAccessTokendAndRefreshToken } from "../utils/GenerateTokens.js";
 import { User } from "../models/user.model.js";
@@ -160,4 +160,159 @@ const refreshAccessToken = asyncHandler(async (request, response) => {
   }
 });
 
-export { registerUser, loginUser, logoutUser,refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (request, response) => {
+  //1.get the old password and new password from the request
+  const { oldPassword, newPassword } = request.body;
+
+  try {
+    //2.get the user to get the old password
+    const user = await User.findById(request.user?._id);
+
+    //3.verify the password
+    const getPasswordStatus = await user.isPasswordCorrect(oldPassword);
+    if (!getPasswordStatus) {
+      throw new ApiError(400, "Incorrect password");
+    }
+
+    //4.assign the new password to the user and save it
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+
+    //5.return the response after change the password
+    return response
+      .status(200)
+      .json(new ApiResponse(200, {}, "Password change successfully"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Can't change password");
+  }
+});
+
+const getCurrentUser = asyncHandler(async (request, response) => {
+  return response
+    .status(200)
+    .json(
+      new ApiResponse(200),
+      request.user,
+      "Current user fetched successfully"
+    );
+});
+
+const updateProfleDetails = asyncHandler(async (request, response) => {
+  //1.get the user update filed details from the request
+  const { fullname, email } = request.body;
+  //2.validate the fields
+  const [status, message] = isValidated(request.body);
+  if (status) {
+    throw new ApiError(400, message);
+  }
+  try {
+    //3.get the user and set the update details into the user.
+    const user = User.findByIdAndUpdate(
+      request.user?._id,
+      {
+        $set: {
+          fullname,
+          email,
+        },
+      },
+      { new: true }
+    ).select("-password");
+
+    //4.return the response
+    return response
+      .status(200)
+      .json(new ApiResponse(200, user, "Profile Update successfully"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Can't Update Profile");
+  }
+});
+
+const updateAvatar = asyncHandler(async (request, response) => {
+  //1. get avatar from the request
+  const avatarLocalPath = request.file?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar field required");
+  }
+  //2. get avatarimageURL from the user
+  const oldAvatar = await User.findById(request.user?._id).select("avatar");
+
+  //3. delete the image from the cloudinary
+  const cloudFileStatus = await fileDeleteOnCloud(oldAvatar);
+  if (!cloudFileStatus) {
+    throw new ApiError(500, "Not delete avatar from the cloudinary");
+  }
+  try {
+    //4. upload the new avatarImage in cloudinary
+    const newuploadAvatar = await fileUploadOnCloud(avatarLocalPath);
+    if (!newuploadAvatar.url) {
+      throw new ApiError(500, "Error while upload file on the cloudinary");
+    }
+    //5. update the new upload avatarImage in the user avatar field
+    const user = await User.findByIdAndUpdate(
+      request.user?._id,
+      {
+        $set: {
+          avatar: newuploadAvatar.url
+        },
+      },
+      { new: true }
+    ).select("-password");
+    //6. return the response
+    return response
+      .status(200)
+      .json(new ApiResponse(200, user, "Avatar successfully uploaded"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Can't update avatar");
+  }
+});
+
+const updateCoverImage=asyncHandler(async(request,response)=>{
+  //1. get coverImage from the request
+  const coverImageLocalPath = request.file?.path;
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "Cover image field required");
+  }
+  //2. get coverImageURL from the user
+  const oldCoverImage = await User.findById(request.user?._id).select("coverImage");
+
+  //3. delete the image from the cloudinary
+  const cloudFileStatus = await fileDeleteOnCloud(oldCoverImage);
+  if (!cloudFileStatus) {
+    throw new ApiError(500, "Not delete cover image from the cloudinary");
+  }
+  try {
+    //4. upload the new coverImage in cloudinary
+    const newuploadCoverImage = await fileUploadOnCloud(coverImageLocalPath);
+    if (!newuploadCoverImage.url) {
+      throw new ApiError(500, "Error while upload file on the cloudinary");
+    }
+    //5. update the new upload coverImage in the user coverImage field
+    const user = await User.findByIdAndUpdate(
+      request.user?._id,
+      {
+        $set: {
+          coverImage: newuploadCoverImage.url
+        },
+      },
+      { new: true }
+    ).select("-password");
+    //6. return the response
+    return response
+      .status(200)
+      .json(new ApiResponse(200, user, "Cover image successfully uploaded"));
+  } catch (error) {
+    throw new ApiError(500, error?.message || "Can't update cover image");
+  }
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateProfleDetails,
+  updateAvatar,
+  updateCoverImage
+};

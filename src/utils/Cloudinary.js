@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-
           
 cloudinary.config({ 
   cloud_name: process.env.CLOUD_NAME, 
@@ -25,5 +24,21 @@ const fileUploadOnCloud= async (localFilePath)=>{
         return null;
     }
 }
-
-export {fileUploadOnCloud};
+const fileDeleteOnCloud=async(dbUserImageURL)=>{
+    try {
+        //Extract public_id from the dbUserImageURL between upload/ and file extension
+        const PUBLIC_ID=dbUserImageURL.match(/upload\/([^\.]+)/);
+        if(!PUBLIC_ID){
+            return false;
+        }
+        const status=await cloudinary.uploader.destroy(PUBLIC_ID);
+        if(status.result!=='ok'){
+            return false;
+        }
+        return true;
+    } catch (error) {
+        console.log(error.message);
+        return false;
+    }
+}
+export {fileUploadOnCloud,fileDeleteOnCloud};
