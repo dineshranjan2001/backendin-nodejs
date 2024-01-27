@@ -27,15 +27,12 @@ const fileUploadOnCloud= async (localFilePath)=>{
 const fileDeleteOnCloud=async(dbUserImageURL)=>{
     try {
         //Extract public_id from the dbUserImageURL between upload/ and file extension
-        const PUBLIC_ID=dbUserImageURL.match(/upload\/([^\.]+)/);
+        const PUBLIC_ID=dbUserImageURL.match(/upload\/([^\\.]+)/);
         if(!PUBLIC_ID){
             return false;
         }
         const status=await cloudinary.uploader.destroy(PUBLIC_ID);
-        if(status.result!=='ok'){
-            return false;
-        }
-        return true;
+        return status.result === 'ok';
     } catch (error) {
         console.log(error.message);
         return false;

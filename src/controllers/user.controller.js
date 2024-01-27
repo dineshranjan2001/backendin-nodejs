@@ -207,7 +207,7 @@ const updateProfleDetails = asyncHandler(async (request, response) => {
   }
   try {
     //3.get the user and set the update details into the user.
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       request.user?._id,
       {
         $set: {
@@ -252,7 +252,7 @@ const updateAvatar = asyncHandler(async (request, response) => {
       request.user?._id,
       {
         $set: {
-          avatar: newuploadAvatar.url
+          avatar: newuploadAvatar.url,
         },
       },
       { new: true }
@@ -266,14 +266,16 @@ const updateAvatar = asyncHandler(async (request, response) => {
   }
 });
 
-const updateCoverImage=asyncHandler(async(request,response)=>{
+const updateCoverImage = asyncHandler(async (request, response) => {
   //1. get coverImage from the request
   const coverImageLocalPath = request.file?.path;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Cover image field required");
   }
   //2. get coverImageURL from the user
-  const oldCoverImage = await User.findById(request.user?._id).select("coverImage");
+  const oldCoverImage = await User.findById(request.user?._id).select(
+    "coverImage"
+  );
 
   //3. delete the image from the cloudinary
   const cloudFileStatus = await fileDeleteOnCloud(oldCoverImage);
@@ -291,7 +293,7 @@ const updateCoverImage=asyncHandler(async(request,response)=>{
       request.user?._id,
       {
         $set: {
-          coverImage: newuploadCoverImage.url
+          coverImage: newuploadCoverImage.url,
         },
       },
       { new: true }
@@ -305,6 +307,90 @@ const updateCoverImage=asyncHandler(async(request,response)=>{
   }
 });
 
+const getUserProfileDetails = asyncHandler(async (request, response) => {
+  //get username from the request
+  const { username } = request.param;
+
+  //2.validate the username
+  if (!username?.trim()) {
+    throw new ApiError(400, "username is missing");
+  }
+  try {
+
+    //3.get the channel information details using username
+    const channelProfileDetails = await User.aggregate([
+      {
+        $match: {
+          username: username?.toLowerCase(),
+        },
+      },
+      {
+        $lookup: {
+          from: "subscriptions",
+          localField: "_id",
+          foreignField: "channel",
+          as: "subscribers",
+        },
+      },
+      {
+        $lookup: {
+          from: "subscriptions",
+          localField: "_id",
+          foreignField: "subscriber",
+          as: "subscribedTo",
+        },
+      },
+      {
+        $addFields: {
+          subscribersCount: {
+            $size: "$subscribers",
+          },
+          channelSubscribedCount: {
+            $size: "subscribedTo",
+          },
+          isSubscribed: {
+            $cond: {
+              $if: { $in: [request.user?._id, "$subscribers.subscriber"] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          fullname: 1,
+          username: 1,
+          email: 1,
+          avatar: 1,
+          coverImage: 1,
+          subscribersCount: 1,
+          channelSubscribedCount: 1,
+          isSubscribed: 1,
+        },
+      },
+    ]);
+
+  //4. validate the channel if the channel does't exit then throw error
+    if (!channelProfileDetails?.length > 0) {
+      throw new ApiError(404, "Channel doesn't exit");
+    }
+
+  //5. return the response to the user
+    return response
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          channelProfileDetails[0],
+          "Channel details retrived successfully"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(500,"Can't retrived channel details"); 
+  }
+});
+
 export {
   registerUser,
   loginUser,
@@ -314,5 +400,6 @@ export {
   getCurrentUser,
   updateProfleDetails,
   updateAvatar,
-  updateCoverImage
+  updateCoverImage,
+  getUserProfileDetails
 };
