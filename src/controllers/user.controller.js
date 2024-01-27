@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { generateAccessTokendAndRefreshToken } from "../utils/GenerateTokens.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const registerUser = asyncHandler(async (request, response) => {
   //1.get the user details from the request
@@ -316,7 +317,6 @@ const getUserProfileDetails = asyncHandler(async (request, response) => {
     throw new ApiError(400, "username is missing");
   }
   try {
-
     //3.get the channel information details using username
     const channelProfileDetails = await User.aggregate([
       {
@@ -371,12 +371,12 @@ const getUserProfileDetails = asyncHandler(async (request, response) => {
       },
     ]);
 
-  //4. validate the channel if the channel does't exit then throw error
+    //4. validate the channel if the channel does't exit then throw error
     if (!channelProfileDetails?.length > 0) {
       throw new ApiError(404, "Channel doesn't exit");
     }
 
-  //5. return the response to the user
+    //5. return the response to the user
     return response
       .status(200)
       .json(
@@ -387,7 +387,65 @@ const getUserProfileDetails = asyncHandler(async (request, response) => {
         )
       );
   } catch (error) {
-    throw new ApiError(500,"Can't retrived channel details"); 
+    throw new ApiError(500, "Can't retrived channel details");
+  }
+});
+
+const getUserWatchHistory = asyncHandler(async (request, response) => {
+  try {
+    const user = await User.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(request.user._id),
+        },
+      },
+      {
+        $lookup: {
+          from: "videos",
+          localField: "watchHistory",
+          foreignField: "_id",
+          as: "watchHistory",
+          pipeline: [
+            {
+              $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                  {
+                    $project: {
+                      fullname: 1,
+                      username: 1,
+                      email: 1,
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              $addFields: {
+                owner: {
+                  $first: "$owner",
+                },
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    return response
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          user[0].watchHistory,
+          "Watch history fetched succesfully"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(500, "Can't fetched watch history");
   }
 });
 
@@ -401,5 +459,6 @@ export {
   updateProfleDetails,
   updateAvatar,
   updateCoverImage,
-  getUserProfileDetails
+  getUserProfileDetails,
+  getUserWatchHistory
 };
