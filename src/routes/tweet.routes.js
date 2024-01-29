@@ -14,4 +14,4 @@ router.route("/get-all-tweets/:userId").get(getUserTweets);
 router.route("/update-tweet/:tweetId").patch(updateTweet);
 router.route("/delete-tweet/:tweetId").delete(deleteTweet);
 
-export default tweetRouter;
+export default router;
