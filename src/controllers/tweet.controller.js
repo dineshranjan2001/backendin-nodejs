@@ -35,7 +35,7 @@ const createTweet = asyncHandler(async (request, response) => {
 
 const getUserTweets = asyncHandler(async (request, response) => {
   //1.get the userId, page and limit from the request
-  const userId = request.user?._id;
+  const userId = request.params;
   const { page = 1, limit = 1 } = request.query;
   const option = {
     page,
@@ -43,7 +43,7 @@ const getUserTweets = asyncHandler(async (request, response) => {
   };
 
   //2.validate the userId
-  if (!isValidObjectId(userId)) {
+  if (!isValidObjectId(userId.trim())) {
     throw new ApiError(400, "Invalid user id");
   }
   try {
@@ -96,7 +96,7 @@ const getUserTweets = asyncHandler(async (request, response) => {
 
 const updateTweet = asyncHandler(async (request, response) => {
   //1.get tweetId and content from the request
-  const { tweetId } = request.param;
+  const { tweetId } = request.params;
   const { content } = request.body;
   //2.validate the tweetId and content
   if (!isValidObjectId(tweetId)) {
@@ -129,7 +129,7 @@ const updateTweet = asyncHandler(async (request, response) => {
 
 const deleteTweet = asyncHandler(async (request, response) => {
   //1.get the tweetId from the request
-  const { tweetId } = request.param;
+  const { tweetId } = request.params;
 
   //2.validate the tweetId
   if (isValidObjectId(tweetId)) {
